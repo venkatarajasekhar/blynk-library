@@ -12,34 +12,29 @@
 #define BlynkApiArduino_h
 
 #include "mbed.h"
+#include <Blynk/BlynkApi.h>
+#include <iostream>
+#include <vector>
+#include <string>
+using namespace std;
 
 static Timer  blynk_millis_timer;
 static Ticker blynk_waker;
 
-static
-void blynk_wake() {
-    //pc.puts("(...)");
-}
-
-static
-void delay(unsigned long ms)
-{
-    wait_ms(ms);
-}
-
-static
-unsigned long millis(void)
-{
-    return blynk_millis_timer.read_ms();
-}
-
-#include <Blynk/BlynkApi.h>
-
 template<class Proto>
 void BlynkApi<Proto>::Init()
 {
+    try{
     blynk_waker.attach(&blynk_wake, 2.0);
+    }catch(...){
+    cout << "Exceptions";
+    }
+    try{
     blynk_millis_timer.start();
+    }catch(...){
+    cout << "Exceptions";
+    }
+    
 }
 
 template<class Proto>
@@ -53,7 +48,10 @@ millis_time_t BlynkApi<Proto>::getMillis()
 
 template<class Proto>
 BLYNK_FORCE_INLINE
-void BlynkApi<Proto>::sendInfo() {}
+void BlynkApi<Proto>::sendInfo() {
+
+
+}
 
 #else
 
@@ -61,7 +59,7 @@ template<class Proto>
 BLYNK_FORCE_INLINE
 void BlynkApi<Proto>::sendInfo()
 {
-    static const char profile[] BLYNK_PROGMEM =
+        static const vector<profile> BLYNK_PROGMEM[] =
         BLYNK_PARAM_KV("ver"    , BLYNK_VERSION)
         BLYNK_PARAM_KV("h-beat" , BLYNK_TOSTRING(BLYNK_HEARTBEAT))
         BLYNK_PARAM_KV("buff-in", BLYNK_TOSTRING(BLYNK_MAX_READBYTES))
@@ -79,7 +77,7 @@ void BlynkApi<Proto>::sendInfo()
     const size_t profile_len = sizeof(profile)-1;
 
 #ifdef BLYNK_HAS_PROGMEM
-    char mem[profile_len];
+    vector<char> mem[profile_len];
     memcpy_P(mem, profile, profile_len);
     static_cast<Proto*>(this)->sendCmd(BLYNK_CMD_INTERNAL, 0, mem, profile_len);
 #else
@@ -94,14 +92,16 @@ template<class Proto>
 BLYNK_FORCE_INLINE
 void BlynkApi<Proto>::processCmd(const void* buff, size_t len)
 {
-    BlynkParam param((void*)buff, len);
-    BlynkParam::iterator it = param.begin();
-    if (it >= param.end())
+    BlynkParam paramobj((void*)buff, len);
+    BlynkParam::iterator it = paramobj.begin();
+    if (it >= paramobj.end())
         return;
-    const char* cmd = it.asStr();
+    const char* Paramcmd = it.asStr();
+    if(!Paramcmd)
+        return;
     uint16_t cmd16;
     memcpy(&cmd16, cmd, sizeof(cmd16));
-    if (++it >= param.end())
+    if (++it >= paramobj.end())
         return;
 
 #if defined(analogInputToDigitalPin)
@@ -136,12 +136,12 @@ void BlynkApi<Proto>::processCmd(const void* buff, size_t len)
         }
     } break;
     case BLYNK_HW_DR: {
-        DigitalIn p((PinName)pin);
+        DigitalIn DigitalObj((PinName)pin);
         char mem[16];
-        BlynkParam rsp(mem, 0, sizeof(mem));
-        rsp.add("dw");
-        rsp.add(pin);
-        rsp.add(int(p));
+        BlynkParam rspobj(mem, 0, sizeof(mem));
+        rspobj.add("dw");
+        rspobj.add(pin);
+        rspobj.add(int(DigitalObj));
         static_cast<Proto*>(this)->sendCmd(BLYNK_CMD_HARDWARE, 0, rsp.getBuffer(), rsp.getLength()-1);
     } break;
     case BLYNK_HW_DW: {
@@ -150,16 +150,16 @@ void BlynkApi<Proto>::processCmd(const void* buff, size_t len)
             return;
 
         //BLYNK_LOG("digitalWrite %d -> %d", pin, it.asInt());
-        DigitalOut p((PinName)pin);
-        p = it.asInt() ? 1 : 0;
+        DigitalOut DoutObj((PinName)pin);
+        DoutObj = it.asInt() ? 1 : 0;
     } break;
     case BLYNK_HW_AR: {
-        AnalogIn p((PinName)pin);
+        AnalogIn AnalogObj((PinName)pin);
         char mem[16];
-        BlynkParam rsp(mem, 0, sizeof(mem));
-        rsp.add("aw");
-        rsp.add(pin);
-        rsp.add(int(p.read() * 1024));
+        BlynkParam rspobj(mem, 0, sizeof(mem));
+        rspobj.add("aw");
+        rspobj.add(pin);
+        rspobj.add(int(AnalogObj.read() * 1024));
         static_cast<Proto*>(this)->sendCmd(BLYNK_CMD_HARDWARE, 0, rsp.getBuffer(), rsp.getLength()-1);
     } break;
     case BLYNK_HW_AW: {
@@ -180,6 +180,8 @@ void BlynkApi<Proto>::processCmd(const void* buff, size_t len)
     case BLYNK_HW_VW: {
         ++it;
         char* start = (char*)it.asStr();
+        if(!start)
+            break;
         BlynkParam param2(start, len - (start - (char*)buff));
         BlynkReq req = { pin };
         WidgetWriteHandler handler = GetWriteHandler(pin);
