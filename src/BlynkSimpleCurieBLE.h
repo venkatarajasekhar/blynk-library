@@ -23,30 +23,52 @@
 #include <Blynk/BlynkProtocol.h>
 #include <utility/BlynkFifo2.h>
 #include <CurieBLE.h>
-
+#include <iostream>
+#include <bitset>
+Enum class BluetoothError{
+    BLE_Hardware_Falilure = 0x03;
+    };
 class BlynkTransportCurieBLE
 {
 public:
-    BlynkTransportCurieBLE()
-        : mConn (false)
-    {}
+    BlynkTransportCurieBLE() 
+    {
+    mConn = false; 
+    }
 
-    // IP redirect not available
-    void begin(char BLYNK_UNUSED *h, uint16_t BLYNK_UNUSED p) {}
+    
+    void begin(char BLYNK_UNUSED *h, uint16_t BLYNK_UNUSED p) {
+    
+    
+    }
 
     void begin(BLEPeripheral& per) {
         instance = this;
 
         blePeripheral = &per;
         // Add service and characteristic
+        try{
         blePeripheral->setAdvertisedServiceUuid(bleService.uuid());
         blePeripheral->addAttribute(bleService);
         blePeripheral->addAttribute(rxChar);
         blePeripheral->addAttribute(txChar);
-
-        unsigned char empty[0] = {};
-        rxChar.setValue(empty, 0);
-        txChar.setValue(empty, 0);
+        }catch(...){
+            
+            
+            
+        }
+        vector<unsigned char> vectarray(0);
+        try{
+        rxChar.setValue(vectarray, 0);
+        }catch(...)
+        
+        }
+        try{
+        txChar.setValue(vectarray, 0);
+        }catch(...){
+        
+        
+        }
 
         // Assign event handlers for connected, disconnected to peripheral
         blePeripheral->setEventHandler(BLEDisconnected, blePeripheralDisconnectHandler);
@@ -55,12 +77,15 @@ public:
     }
 
     bool connect() {
+        
         mBuffRX.clear();
-        return mConn = true;
+        mConn = true;
+        return mConn;
     }
 
     void disconnect() {
         mConn = false;
+        return;
     }
 
     bool connected() {
@@ -147,7 +172,11 @@ public:
     {
         Base::begin(auth);
         state = DISCONNECTED;
+        try{
         conn.begin(per);
+        }catch(...){
+        
+        }
     }
 };
 
